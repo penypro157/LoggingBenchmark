@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using MySqlX.XDevAPI.Common;
 using OrderAppWeb.API.Context;
 using OrderAppWeb.API.Models.Dtos;
 using OrderAppWeb.API.Models.Entities;
@@ -120,12 +121,56 @@ namespace OrderAppWeb.API.Controllers
         [HttpGet("{id:long}")]
         public async Task<IActionResult> TestBatchLogging([Required] int id)
         {
+            var result = await _context.Products.Where(x => x.Id < 500).ToListAsync();
+            var result1 = await _context.Products.Where(x => x.Id < 400).ToListAsync();
+            var result2 = await _context.Products.Where(x => x.Id < 300).ToListAsync();
+            var result3 = await _context.Products.Where(x => x.Id < 200).ToListAsync();
+            var productList = new List<Product>();
             _logger.Information($" Test logging process start");
             for (int i = 0; i <= 50; i++)
             {
-
+                Product product = new Product()
+                {
+                    Description = $"Description {i}",
+                    Category = $"Category {i}",
+                    Status = false,
+                    Unit = i,
+                    UnitPrice = i
+                };
+                productList.Append(product);
                 _logger.Information($" This is Message ${i}");
             }
+            await _context.Products.AddRangeAsync(productList);
+            await _context.SaveChangesAsync();
+            _logger.Information($" Test logging process end");
+            return Ok(id);
+        }
+
+        [HttpGet]
+        [Route("TestBatchLogging1")]
+        public async Task<IActionResult> TestBatchLogging1([Required] int id)
+        {
+            var result = await _context.Products.Where(x => x.Id < 500).ToListAsync();
+            var result1 = await _context.Products.Where(x => x.Id < 400).ToListAsync();
+            var result2 = await _context.Products.Where(x => x.Id < 300).ToListAsync();
+            var result3 = await _context.Products.Where(x => x.Id < 200).ToListAsync();
+            var productList = new List<Product>();
+            _logger.Information($" Test logging process start");
+            for (int i = 0; i <= 50; i++)
+            {
+                Product product = new Product()
+                {
+                    Description = $"Description {i}",
+                    Category = $"Category {i}",
+                    Status = false,
+                    Unit = i,
+                    UnitPrice = i
+                };
+                productList.Append(product);
+                _logger.Information($" This is Message ${i}");
+            }
+            await _context.Products.AddRangeAsync(productList);
+            await _context.SaveChangesAsync();
             _logger.Information($" Test logging process end");
             return Ok(id);
         }
