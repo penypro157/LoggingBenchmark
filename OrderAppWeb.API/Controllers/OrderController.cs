@@ -8,8 +8,8 @@ using OrderAppWeb.API.Models.Dtos;
 using OrderAppWeb.API.Models.Entities;
 using OrderAppWeb.API.Models.Results;
 using Serilog;
-using ServiceStack.Redis;
-using ServiceStack.Redis.Generic;
+using StackExchange.Redis;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace OrderAppWeb.API.Controllers
@@ -22,17 +22,20 @@ namespace OrderAppWeb.API.Controllers
         private readonly OrderDbContext _context;
         private readonly IMapper mapper;
         private readonly Serilog.ILogger _logger;
+        private readonly IConnectionMultiplexer _connectionMultiplexer;
 
         public OrderController(IMemoryCache memoryCache,
             OrderDbContext context,
             IMapper mapper
-            , Serilog.ILogger logger
+            , Serilog.ILogger logger,
+            IConnectionMultiplexer connectionMultiplexer
             )
         {
             _memoryCache = memoryCache;
             _context = context;
             _logger = logger;
             this.mapper = mapper;
+            _connectionMultiplexer = connectionMultiplexer;
         }
 
         // #region Memory Cache ile Cache işlemi
@@ -72,51 +75,51 @@ namespace OrderAppWeb.API.Controllers
         // #endregion
 
         #region Redis ile Cache işlemi
-        [HttpGet]
-        public async Task<IActionResult> Get(string? category)
-        {
-            var redisClient = new RedisClient("localhost", 6379);
-            IRedisTypedClient<List<Product>> redisProducts = redisClient.As<List<Product>>();
+        //[HttpGet]
+        //public async Task<IActionResult> Get(string? category)
+        //{
+        //    //var redisClient = new RedisClient("localhost", 6379);
+        //    //IRedisTypedClient<List<Product>> redisProducts = redisClient.As<List<Product>>();
 
-            var result = new List<Product>();
-            if (category is null)
-            {
-                result = redisClient.Get<List<Product>>("products");
-                if (result is null)
-                {
-                    result = await _context.Products.ToListAsync();
-                    redisClient.Set("products", result, TimeSpan.FromMinutes(10));
-                }
-            }
-            else
-            {
-                result = redisClient.Get<List<Product>>($"products-{category}");
-                if (result is null)
-                {
-                    result = await _context.Products.Where(x => x.Category == category).ToListAsync();
-                    redisClient.Set($"products-{category}", result, TimeSpan.FromMinutes(10));
-                }
-            }
+        //    //var result = new List<Product>();
+        //    //if (category is null)
+        //    //{
+        //    //    result = redisClient.Get<List<Product>>("products");
+        //    //    if (result is null)
+        //    //    {
+        //    //        result = await _context.Products.ToListAsync();
+        //    //        redisClient.Set("products", result, TimeSpan.FromMinutes(10));
+        //    //    }
+        //    //}
+        //    //else
+        //    //{
+        //    //    result = redisClient.Get<List<Product>>($"products-{category}");
+        //    //    if (result is null)
+        //    //    {
+        //    //        result = await _context.Products.Where(x => x.Category == category).ToListAsync();
+        //    //        redisClient.Set($"products-{category}", result, TimeSpan.FromMinutes(10));
+        //    //    }
+        //    //}
 
-            var productDtos = mapper.Map<List<Product>, List<ProductDto>>(result);
+        //    //var productDtos = mapper.Map<List<Product>, List<ProductDto>>(result);
 
 
-            return Ok(new ApiResponse<List<ProductDto>>(StatusType.Success, productDtos));
-        }
+        //    //return Ok(new ApiResponse<List<ProductDto>>(StatusType.Success, productDtos));
+        //}
         #endregion
 
-        [HttpPost] 
-        public async Task<IActionResult> CreateOrder(CreateOrderRequest createOrderRequest)
-        {
-            Order order=mapper.Map<Order>(createOrderRequest);
-            List<OrderDetail> orderDetails = mapper.Map<List<ProductDetailDto>, List<OrderDetail>>(createOrderRequest.ProductDetails);
-            order.TotalAmount = createOrderRequest.ProductDetails.Sum(x => x.Amount);
-            order.OrderDetails= orderDetails;
-            await _context.Orders.AddAsync(order);
-            await _context.SaveChangesAsync();
+        //[HttpPost] 
+        //public async Task<IActionResult> CreateOrder(CreateOrderRequest createOrderRequest)
+        //{
+        //    //Order order=mapper.Map<Order>(createOrderRequest);
+        //    //List<OrderDetail> orderDetails = mapper.Map<List<ProductDetailDto>, List<OrderDetail>>(createOrderRequest.ProductDetails);
+        //    //order.TotalAmount = createOrderRequest.ProductDetails.Sum(x => x.Amount);
+        //    //order.OrderDetails= orderDetails;
+        //    //await _context.Orders.AddAsync(order);
+        //    //await _context.SaveChangesAsync();
 
-            return Ok(new ApiResponse<int>(StatusType.Success,order.Id));
-        }
+        //    return Ok(new ApiResponse<int>(StatusType.Success, order.Id));
+        //}
 
         [HttpGet("{id:long}")]
         public async Task<IActionResult> TestBatchLogging([Required] int id)
@@ -137,13 +140,13 @@ namespace OrderAppWeb.API.Controllers
                     Unit = i,
                     UnitPrice = i
                 };
-                productList.Append(product);
+                productList.Add(product);
                 _logger.Information($" This is Message ${i}");
             }
             await _context.Products.AddRangeAsync(productList);
             await _context.SaveChangesAsync();
             _logger.Information($" Test logging process end");
-            return Ok(id);
+            return Ok(0);
         }
 
         [HttpGet]
